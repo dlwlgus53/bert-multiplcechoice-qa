@@ -10,6 +10,8 @@ from tqdm import tqdm
 from trainer import train, valid
 from transformers import BertTokenizerFast
 from torch.utils.tensorboard import SummaryWriter
+from datasets import load_metric
+from transformers import AutoTokenizer
 
 import datetime
 now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -21,6 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--patience' ,  type = int, default=3)
 parser.add_argument('--batch_size' , type = int, default=8)
 parser.add_argument('--max_epoch' ,  type = int, default=20)
+parser.add_argument('--base_trained_model', type = str, default = 'bert-base-uncased', help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
 parser.add_argument('--gpu_number' , type = int,  default = 0, help = 'which GPU will you use?')
 parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
@@ -33,10 +36,11 @@ args = parser.parse_args()
 
 if __name__ =="__main__":
 
-    tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
+    tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
+    # TODO : model = BertForQuestionAnswering.from_pretrained(args.base_trained_model)
+
     train_dataset = Dataset(args.dataset_name, tokenizer, "train")
     val_dataset = Dataset(args.dataset_name, tokenizer,  "validation") 
-    model = BertForQuestionAnswering.from_pretrained("bert-base-uncased")
     device = torch.device(f'cuda:{args.gpu_number}' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(device) # change allocation of current GPU
 
