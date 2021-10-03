@@ -34,10 +34,9 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = tokenizer
         self.data_name = data_name
         self.max_length = max_length
-        
+        self.max_options = max_options
 
         try:
-            'a'-1
             print("Load processed data")
             with open(f'data/preprocessed_{type}_{data_name}_{data_option}.pickle', 'rb') as f:
                 encodings = pickle.load(f)
@@ -82,6 +81,8 @@ class Dataset(torch.utils.data.Dataset):
         print(f"preprocessing {self.data_name} data")
         for i, (c, q, os, a) in tqdm(enumerate(zip(dataset['article'], dataset['question'],\
                                     dataset['options'], dataset['answer'])), total= len(dataset['article'])):
+            os += ['do not care', 'not mentioned']
+            os += (['wrong'] * (self.max_options-len(os)))
             for o in os:
                 c_token = tokenizer.tokenize(c)
                 q_token = tokenizer.tokenize(q)
