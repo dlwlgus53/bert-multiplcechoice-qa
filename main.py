@@ -1,23 +1,19 @@
 import torch
 import argparse
-
-from dataset import Dataset
-from utils import compute_F1, compute_exact_match
-from transformers import BertForQuestionAnswering
-from torch.utils.data import DataLoader
-from transformers import AdamW
-from tqdm import tqdm
-from trainer import train, valid
-from transformers import BertTokenizerFast
-from torch.utils.tensorboard import SummaryWriter
-from datasets import load_metric
-from transformers import AutoTokenizer
-
 import datetime
+
+import numpy as np
+from tqdm import tqdm
+from dataset import Dataset
+from trainer import valid, train
+from torch.utils.data import DataLoader
+from sklearn.metrics import accuracy_score
+from torch.utils.tensorboard import SummaryWriter
+from transformers import AutoModelForMultipleChoice, AutoTokenizer, AdamW
+
+
 now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
 writer = SummaryWriter()
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--patience' ,  type = int, default=3)
@@ -28,7 +24,11 @@ parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned mode
 parser.add_argument('--gpu_number' , type = int,  default = 0, help = 'which GPU will you use?')
 parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
 parser.add_argument('--log_file' , type = str,  default = f'logs/log_{now_time}.txt', help = 'Is this debuggin mode?')
-parser.add_argument('--dataset_name' , required= True, type = str,  help = 'mrqa|squad|coqa')
+parser.add_argument('--dataset_name' , type = str,  default = 'race', help = 'race')
+parser.add_argument('--dataset_option' , type = str,  default = 'middle', help = 'all|middle|high')
+parser.add_argument('--max_length' , type = int,  default = 128, help = 'max length')
+parser.add_argument('--max_options' , type = int,  default = 4, help = 'max number of options')
+
 
 
 
@@ -37,17 +37,17 @@ args = parser.parse_args()
 if __name__ =="__main__":
 
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
-    # TODO : model = BertForQuestionAnswering.from_pretrained(args.base_trained_model)
-
-    train_dataset = Dataset(args.dataset_name, tokenizer, "train")
-    val_dataset = Dataset(args.dataset_name, tokenizer,  "validation") 
-    device = torch.device(f'cuda:{args.gpu_number}' if torch.cuda.is_available() else 'cpu')
-    torch.cuda.set_device(device) # change allocation of current GPU
+    model = AutoModelForMultipleChoice.from_pretrained(args.base_trained_model)
+    train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train")
+    val_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer,  args.max_length, args.max_options,"validation") 
 
     train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True)
     dev_loader = DataLoader(val_dataset, args.batch_size, shuffle=True)
     optimizer = AdamW(model.parameters(), lr=5e-5)
     log_file = open(args.log_file, 'w')
+
+    device = torch.device(f'cuda:{args.gpu_number}' if torch.cuda.is_available() else 'cpu')
+    torch.cuda.set_device(device) # change allocation of current GPU
 
 
     if args.pretrained_model:
@@ -55,26 +55,22 @@ if __name__ =="__main__":
         log_file.write("use trained model")
         model.load_state_dict(torch.load(args.pretrained_model))
 
-
     model.to(device)
     penalty = 0
     min_loss = float('inf')
+
     for epoch in range(args.max_epoch):
         print(f"Epoch : {epoch}")
         train(model, train_loader, optimizer, device)
+        ACC = 0
+        anss, preds, loss = valid(model, dev_loader, device, tokenizer,log_file)
+        for iter, (ans, pred) in enumerate(zip(anss, preds)):
+            ACC += accuracy_score(ans, pred)
 
-        EM = 0
-        F1 = 0 
-        pred_texts, ans_texts, loss = valid(model, dev_loader, device, tokenizer,log_file)
-        for iter, (pred_text, ans_text) in enumerate(zip(pred_texts, ans_texts)):
-            EM += compute_exact_match(pred_text, ans_text)
-            F1 += compute_F1(pred_text, ans_text)
-        
-        print("Epoch : %d, EM : %.04f, F1 : %.04f, Loss : %.04f" % (epoch, EM/iter, F1/iter, loss))
-        log_file.writelines("Epoch : %d, EM : %.04f, F1 : %.04f, Loss : %.04f" % (epoch, EM/iter, F1/iter, loss))
+        print("Epoch : %d, ACC : %.04f, Loss : %.04f" % (epoch, ACC/iter, loss))
+        log_file.writelines("Epoch : %d, ACC : %.04f, Loss : %.04f" % (epoch, ACC/iter, loss))
 
-        writer.add_scalar("EM", EM/iter, epoch)
-        writer.add_scalar("F1", F1/iter, epoch)
+        writer.add_scalar("ACC", ACC/iter, epoch)
         writer.add_scalar("loss",loss, epoch)
 
 
@@ -89,8 +85,7 @@ if __name__ =="__main__":
             if penalty>args.patience:
                 print(f"early stopping at epoch {epoch}")
                 break
-    writer.close()
-    log_file.close()
-
+        writer.close()
+        log_file.close()
 
 
