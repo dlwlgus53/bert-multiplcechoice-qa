@@ -38,7 +38,7 @@ class Dataset(torch.utils.data.Dataset):
 
         try:
             print("Load processed data")
-            with open(f'data/preprocessed_{type}_{data_name}_{data_option}.pickle', 'rb') as f:
+            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'rb') as f:
                 encodings = pickle.load(f)
         except:
             print("preprocess data")
@@ -54,20 +54,29 @@ class Dataset(torch.utils.data.Dataset):
             encodings = {k: [v[i:i+max_options] for i in range(0, len(v), max_options)] for k, v in tokenized_examples.items()}
             encodings['labels'] = labels
             
+            assert len(encodings['labels']) == len(encodings['attention_mask']) == len(encodings['input_ids']) == len(encodings['token_type_ids'])
             
         
             ## save preprocesse data
-            with open(f'data/preprocessed_{type}_{data_name}_{data_option}.pickle', 'wb') as f:
+            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'wb') as f:
                 pickle.dump(encodings, f, pickle.HIGHEST_PROTOCOL)
 
         self.encodings = encodings
+        print(tokenizer.convert_ids_to_tokens(encodings['input_ids'][0][0]))
+        print(tokenizer.convert_ids_to_tokens(encodings['input_ids'][1][0]))
+        
 
 
 
 
 
     def __getitem__(self, idx):
-        return {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        temp = {}
+        try:
+            temp = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
+        except:
+            pdb.set_trace()
+        return temp
 
     def __len__(self):
         return len(self.encodings['input_ids'])
@@ -81,13 +90,14 @@ class Dataset(torch.utils.data.Dataset):
         print(f"preprocessing {self.data_name} data")
         for i, (c, q, os, a) in tqdm(enumerate(zip(dataset['article'], dataset['question'],\
                                     dataset['options'], dataset['answer'])), total= len(dataset['article'])):
-            os += ['do not care', 'not mentioned']
-            os += (['wrong'] * (self.max_options-len(os)))
+            # os += ['do not care', 'not mentioned']
+            # os += (['wrong'] * (self.max_options-len(os)))
+            # assert len(os) == self.max_options
             for o in os:
                 c_token = tokenizer.tokenize(c)
                 q_token = tokenizer.tokenize(q)
                 o_token = tokenizer.tokenize(o)
-                c_token = self._truncate_c_token(c_token, q_token, o_token)
+                c_token, q_token, o_token = self._truncate_cqo_token(c_token, q_token, o_token)
                 
                 tokens = ["[CLS]"] + c_token + ["[SEP]"] + q_token + ["[SEP]"] + o_token + ["[SEP]"] 
                 segment_ids = [0] * (len(c_token) + 2) + [1] * (len(q_token) + 1)+ [1] * (len(o_token) + 1)
@@ -110,11 +120,27 @@ class Dataset(torch.utils.data.Dataset):
         return input_idss, input_masks, segment_idss, labels
         
     
-    def _truncate_c_token(self, c,q,o):
+    def _truncate_cqo_token(self, c,q,o):
+        c_origin, q_origin, o_origin = c,q,o
         if len(c) + len(q) + len(o) + 4 > self.max_length:
-            c = c[:self.max_length - (len(q) + len(o) + 4)]
-        assert(len(c) + len(q) + len(o) + 4 <= self.max_length)
-        return c
+            if self.max_length - (len(q) + len(o) + 4) > 0:
+                c = c[:self.max_length - (len(q) + len(o) + 4)]
+            else:
+                c = []
+        if len(c) + len(q) + len(o) + 4 > self.max_length:
+            if self.max_length - (len(o) + 4) > 0:
+                q = q[:self.max_length - (len(o) + 4)]
+            else:
+                q = []
+                
+        if len(c) + len(q) + len(o) + 4 > self.max_length:
+            if self.max_length - 4 > 0:
+                o = o[:self.max_length - ( 4)]
+            else:
+                o = []
+        if (len(c) + len(q) + len(o) + 4 > self.max_length):
+            pdb.set_trace()
+        return c,q,o
             
         
 
