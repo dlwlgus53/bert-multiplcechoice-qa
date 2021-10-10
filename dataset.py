@@ -16,13 +16,7 @@ print("Load Tokenizer")
  # TODO
 
 
-# {
-#     "answer": "A",
-#     "article": "\"Schoolgirls have been wearing such short skirts at Paget High School in Branston that they've been ordered to wear trousers ins...",
-#     "example_id": "high132.txt",
-#     "options": ["short skirts give people the impression of sexualisation", "short skirts are too expensive for parents to afford", "the headmaster doesn't like girls wearing short skirts", "the girls wearing short skirts will be at the risk of being laughed at"],
-#     "question": "The girls at Paget High School are not allowed to wear skirts in that    _  ."
-# }
+
 
 
             
@@ -38,7 +32,7 @@ class Dataset(torch.utils.data.Dataset):
 
         try:
             print("Load processed data")
-            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'rb') as f:
+            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}_nosep.pickle', 'rb') as f:
                 encodings = pickle.load(f)
         except:
             print("preprocess data")
@@ -58,7 +52,7 @@ class Dataset(torch.utils.data.Dataset):
             
         
             ## save preprocesse data
-            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'wb') as f:
+            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}_nosep.pickle', 'wb') as f:
                 pickle.dump(encodings, f, pickle.HIGHEST_PROTOCOL)
 
         self.encodings = encodings
@@ -81,26 +75,30 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.encodings['input_ids'])
 
-    def _preprocessing_dataset(self, dataset):
+    def _preprocessing_race_dataset(self, dataset):
         input_idss =[]
         input_masks = []
         segment_idss = []
 
         labels = []
         print(f"preprocessing {self.data_name} data")
+        
+        if self.dataset_name == 'dream':
+            # dialogue -> article
+            # choice -> options
         for i, (c, q, os, a) in tqdm(enumerate(zip(dataset['article'], dataset['question'],\
                                     dataset['options'], dataset['answer'])), total= len(dataset['article'])):
-            # os += ['do not care', 'not mentioned']
-            # os += (['wrong'] * (self.max_options-len(os)))
-            # assert len(os) == self.max_options
+            os += ['not mentioned']
+            os += (['wrong'] * (self.max_options-len(os)))
+            assert len(os) == self.max_options
             for o in os:
                 c_token = tokenizer.tokenize(c)
                 q_token = tokenizer.tokenize(q)
                 o_token = tokenizer.tokenize(o)
                 c_token, q_token, o_token = self._truncate_cqo_token(c_token, q_token, o_token)
                 
-                tokens = ["[CLS]"] + c_token + ["[SEP]"] + q_token + ["[SEP]"] + o_token + ["[SEP]"] 
-                segment_ids = [0] * (len(c_token) + 2) + [1] * (len(q_token) + 1)+ [1] * (len(o_token) + 1)
+                tokens = ["[CLS]"] + c_token + ["[SEP]"] + q_token + o_token + ["[SEP]"] 
+                segment_ids = [0] * (len(c_token) + 2) + [1] * (len(q_token) )+ [1] * (len(o_token) + 1)
                 input_ids = tokenizer.convert_tokens_to_ids(tokens)
                 input_mask = [1] * len(input_ids)
 
@@ -114,31 +112,33 @@ class Dataset(torch.utils.data.Dataset):
                 input_masks.append(input_mask)
                 segment_idss.append(segment_ids)
                 
-            label = ord(a) - ord('A')
+            label = os.index(a)
             labels.append(label)
         
         return input_idss, input_masks, segment_idss, labels
         
     
+    
+    
     def _truncate_cqo_token(self, c,q,o):
         c_origin, q_origin, o_origin = c,q,o
-        if len(c) + len(q) + len(o) + 4 > self.max_length:
-            if self.max_length - (len(q) + len(o) + 4) > 0:
+        if len(c) + len(q) + len(o) + 3 > self.max_length:
+            if self.max_length - (len(q) + len(o) + 3) > 0:
                 c = c[:self.max_length - (len(q) + len(o) + 4)]
             else:
                 c = []
-        if len(c) + len(q) + len(o) + 4 > self.max_length:
-            if self.max_length - (len(o) + 4) > 0:
-                q = q[:self.max_length - (len(o) + 4)]
+        if len(c) + len(q) + len(o) + 3 > self.max_length:
+            if self.max_length - (len(o) + 3) > 0:
+                q = q[:self.max_length - (len(o) + 3)]
             else:
                 q = []
                 
-        if len(c) + len(q) + len(o) + 4 > self.max_length:
-            if self.max_length - 4 > 0:
-                o = o[:self.max_length - ( 4)]
+        if len(c) + len(q) + len(o) + 3 > self.max_length:
+            if self.max_length - 3 > 0:
+                o = o[:self.max_length - ( 3)]
             else:
                 o = []
-        if (len(c) + len(q) + len(o) + 4 > self.max_length):
+        if (len(c) + len(q) + len(o) + 3 > self.max_length):
             pdb.set_trace()
         return c,q,o
             

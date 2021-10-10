@@ -17,7 +17,7 @@ writer = SummaryWriter()
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--patience' ,  type = int, default=3)
-parser.add_argument('--batch_size' , type = int, default=16)
+parser.add_argument('--batch_size' , type = int, default=22)
 parser.add_argument('--max_epoch' ,  type = int, default=20)
 parser.add_argument('--base_trained_model', type = str, default = 'bert-base-uncased', help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
