@@ -1,3 +1,4 @@
+import os
 import torch
 import argparse
 import datetime
@@ -36,6 +37,16 @@ parser.add_argument('--do_train' , default = True, help = 'do train or not', act
 
 
 args = parser.parse_args()
+
+def makedirs(path): 
+   try: 
+        os.makedirs(path) 
+   except OSError: 
+       if not os.path.isdir(path): 
+           raise
+       
+       
+       
 @email_sender(recipient_emails=["jihyunlee@postech.ac.kr"], sender_email="knowing.deep.clean.water@gmail.com")
 def main():
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
@@ -47,11 +58,12 @@ def main():
     dev_loader = DataLoader(val_dataset, args.batch_size, shuffle=True)
     optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=0.01,)
     log_file = open(args.log_file, 'w')
-
     device = torch.device(f'cuda:{args.gpu_number}' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(device) # change allocation of current GPU
     torch.cuda.empty_cache()
 
+    makedirs("./data"); makedirs("./logs"); makedirs("./model");
+    
     if args.pretrained_model:
         print("use trained model")
         log_file.write("use trained model")
