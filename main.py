@@ -10,15 +10,15 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score
 from torch.utils.tensorboard import SummaryWriter
 from transformers import AutoModelForMultipleChoice, AutoTokenizer, AdamW
-
+from knockknock import email_sender
 
 now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 writer = SummaryWriter()
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--patience' ,  type = int, default=3)
-parser.add_argument('--batch_size' , type = int, default=22)
-parser.add_argument('--max_epoch' ,  type = int, default=20)
+parser.add_argument('--batch_size' , type = int, default=1)
+parser.add_argument('--max_epoch' ,  type = int, default=1)
 parser.add_argument('--base_trained_model', type = str, default = 'bert-base-uncased', help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
 parser.add_argument('--gpu_number' , type = int,  default = 0, help = 'which GPU will you use?')
@@ -26,8 +26,8 @@ parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't
 parser.add_argument('--log_file' , type = str,  default = f'logs/log_{now_time}.txt', help = 'Is this debuggin mode?')
 parser.add_argument('--dataset_name' , type = str,  default = 'race', help = 'race')
 parser.add_argument('--dataset_option' , type = str,  default = 'all', help = 'all|middle|high')
-parser.add_argument('--max_length' , type = int,  default = 128, help = 'max length')
-parser.add_argument('--max_options' , type = int,  default = 4, help = 'max number of options')
+parser.add_argument('--max_length' , type = int,  default = 256, help = 'max length')
+parser.add_argument('--max_options' , type = int,  default = 9, help = 'max number of options')
 parser.add_argument('--do_train' , default = True, help = 'do train or not', action=argparse.BooleanOptionalAction)
 
 
@@ -36,9 +36,8 @@ parser.add_argument('--do_train' , default = True, help = 'do train or not', act
 
 
 args = parser.parse_args()
-
-if __name__ =="__main__":
-
+@email_sender(recipient_emails=["jihyunlee@postech.ac.kr"], sender_email="knowing.deep.clean.water@gmail.com")
+def main():
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
     model = AutoModelForMultipleChoice.from_pretrained(args.base_trained_model)
     train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train")
@@ -91,5 +90,11 @@ if __name__ =="__main__":
                 break
     writer.close()
     log_file.close()
+    
+    return {'loss' : loss}
 
 
+
+
+if __name__ =="__main__":
+    main()

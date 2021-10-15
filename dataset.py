@@ -12,15 +12,6 @@ import pdb
 
 
 print("Load Tokenizer")
-# here, squad means squad2
- # TODO
-
-
-
-
-
-            
-            
 tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', use_fast=True)
 
 class Dataset(torch.utils.data.Dataset):
@@ -32,11 +23,16 @@ class Dataset(torch.utils.data.Dataset):
 
         try:
             print("Load processed data")
-            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}_nosep.pickle', 'rb') as f:
+            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'rb') as f:
                 encodings = pickle.load(f)
         except:
             print("preprocess data")
-            raw_dataset = load_dataset(self.data_name,data_option)
+            if data_option:
+                raw_dataset = load_dataset(self.data_name,data_option)
+            else:
+                raw_dataset = load_dataset(self.data_name)
+                
+                
             input_ids, attention_mask, token_type_ids, labels = self._preprocessing_dataset(raw_dataset[type])
             tokenized_examples = {
                 'input_ids' : input_ids,
@@ -52,17 +48,13 @@ class Dataset(torch.utils.data.Dataset):
             
         
             ## save preprocesse data
-            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}_nosep.pickle', 'wb') as f:
+            with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'wb') as f:
                 pickle.dump(encodings, f, pickle.HIGHEST_PROTOCOL)
 
         self.encodings = encodings
         print(tokenizer.convert_ids_to_tokens(encodings['input_ids'][0][0]))
         print(tokenizer.convert_ids_to_tokens(encodings['input_ids'][1][0]))
         
-
-
-
-
 
     def __getitem__(self, idx):
         temp = {}
@@ -75,23 +67,26 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.encodings['input_ids'])
 
-    def _preprocessing_race_dataset(self, dataset):
+    def _preprocessing_dataset(self, dataset):
         input_idss =[]
         input_masks = []
         segment_idss = []
 
         labels = []
         print(f"preprocessing {self.data_name} data")
+        if self.data_name == 'race':
+            article, question, options, answer = dataset['article'], dataset['question'], dataset['options'], dataset['answer']
+        elif self.data_name == 'dream':
+            article, question, options, answer = dataset['dialogue'], dataset['question'], dataset['choice'], dataset['answer']
         
-        if self.dataset_name == 'dream':
-            # dialogue -> article
-            # choice -> options
-        for i, (c, q, os, a) in tqdm(enumerate(zip(dataset['article'], dataset['question'],\
-                                    dataset['options'], dataset['answer'])), total= len(dataset['article'])):
+        
+        for i, (c, q, os, a) in tqdm(enumerate(zip(article, question, options, answer)), total= len(article)):
             os += ['not mentioned']
             os += (['wrong'] * (self.max_options-len(os)))
             assert len(os) == self.max_options
             for o in os:
+                if self.data_name == 'dream':
+                    c = ' '.join(c)
                 c_token = tokenizer.tokenize(c)
                 q_token = tokenizer.tokenize(q)
                 o_token = tokenizer.tokenize(o)
@@ -111,8 +106,12 @@ class Dataset(torch.utils.data.Dataset):
                 input_idss.append(input_ids)
                 input_masks.append(input_mask)
                 segment_idss.append(segment_ids)
+
+            if self.data_name == 'race':
+                label = ord(a) - ord('A')
+            elif self.data_name == 'dream':
+                label = os.index(a)
                 
-            label = os.index(a)
             labels.append(label)
         
         return input_idss, input_masks, segment_idss, labels
@@ -121,24 +120,25 @@ class Dataset(torch.utils.data.Dataset):
     
     
     def _truncate_cqo_token(self, c,q,o):
-        c_origin, q_origin, o_origin = c,q,o
-        if len(c) + len(q) + len(o) + 3 > self.max_length:
-            if self.max_length - (len(q) + len(o) + 3) > 0:
-                c = c[:self.max_length - (len(q) + len(o) + 4)]
+        special_token_num = 3 # [cls][sep][sep]
+        
+        if len(c) + len(q) + len(o) + special_token_num > self.max_length:
+            if self.max_length - (len(q) + len(o) + special_token_num) > 0:
+                c = c[:self.max_length - (len(q) + len(o) + special_token_num)]
             else:
                 c = []
-        if len(c) + len(q) + len(o) + 3 > self.max_length:
-            if self.max_length - (len(o) + 3) > 0:
-                q = q[:self.max_length - (len(o) + 3)]
+        if len(c) + len(q) + len(o) + special_token_num > self.max_length:
+            if self.max_length - (len(o) + special_token_num) > 0:
+                q = q[:self.max_length - (len(o) + special_token_num)]
             else:
                 q = []
                 
-        if len(c) + len(q) + len(o) + 3 > self.max_length:
-            if self.max_length - 3 > 0:
-                o = o[:self.max_length - ( 3)]
+        if len(c) + len(q) + len(o) + special_token_num > self.max_length:
+            if self.max_length - special_token_num > 0:
+                o = o[:self.max_length - ( special_token_num)]
             else:
                 o = []
-        if (len(c) + len(q) + len(o) + 3 > self.max_length):
+        if (len(c) + len(q) + len(o) + special_token_num > self.max_length):
             pdb.set_trace()
         return c,q,o
             
@@ -148,8 +148,8 @@ class Dataset(torch.utils.data.Dataset):
 
 if __name__ == '__main__':
     max_length = 128
-    max_option = 4
-    train_dataset = Dataset('race', 'middle', tokenizer, max_length, max_option, "validation")
+    max_option = 6
+    train_dataset = Dataset('dream', None, tokenizer, max_length, max_option, "validation")
     train_loader = DataLoader(train_dataset, 4, shuffle=True)
     for batch in train_loader:
         pdb.set_trace()
