@@ -49,6 +49,9 @@ def makedirs(path):
        
 @email_sender(recipient_emails=["jihyunlee@postech.ac.kr"], sender_email="knowing.deep.clean.water@gmail.com")
 def main():
+    makedirs("./data"); makedirs("./logs"); makedirs("./model");
+    
+    
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
     model = AutoModelForMultipleChoice.from_pretrained(args.base_trained_model)
     train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train")
@@ -62,7 +65,6 @@ def main():
     torch.cuda.set_device(device) # change allocation of current GPU
     torch.cuda.empty_cache()
 
-    makedirs("./data"); makedirs("./logs"); makedirs("./model");
     
     if args.pretrained_model:
         print("use trained model")
