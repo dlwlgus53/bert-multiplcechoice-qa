@@ -27,8 +27,6 @@ def train(model, train_loader, optimizer, device):
             if iter %100 == 0 and len(anss) != 0:
                 ACC = accuracy_score(anss, preds)
                 anss , preds = [] , []
-            
-            
         
         gc.collect()
         torch.cuda.empty_cache()
@@ -54,9 +52,11 @@ def valid(model, dev_loader, device, tokenizer, log_file):
             preds += torch.max(outputs[1], axis = 1).indices.to('cpu').tolist()
             
             t_dev_loader.set_description("Loss %.04f  | step %d" % (outputs[0].to('cpu'), iter))
+
+
         gc.collect()
         torch.cuda.empty_cache()
-
+           
     return  anss, preds, loss_sum.item()/iter
         
         

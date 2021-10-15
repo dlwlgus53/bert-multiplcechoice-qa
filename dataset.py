@@ -26,7 +26,7 @@ class Dataset(torch.utils.data.Dataset):
             with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'rb') as f:
                 encodings = pickle.load(f)
         except:
-            print("preprocess data")
+            print("preprocessing data...")
             if data_option:
                 raw_dataset = load_dataset(self.data_name,data_option)
             else:

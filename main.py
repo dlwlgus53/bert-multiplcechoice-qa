@@ -56,7 +56,7 @@ def main():
 
     train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True)
     dev_loader = DataLoader(val_dataset, args.batch_size, shuffle=True)
-    optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=0.01,)
+    optimizer = AdamW(model.parameters(), lr=5e-5, weight_decay=0.01)
     log_file = open(args.log_file, 'w')
     device = torch.device(f'cuda:{args.gpu_number}' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(device) # change allocation of current GPU
@@ -103,7 +103,7 @@ def main():
     writer.close()
     log_file.close()
     
-    return {'loss' : loss}
+    return {'ACC' : ACC}
 
 
 
