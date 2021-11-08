@@ -18,7 +18,7 @@ writer = SummaryWriter()
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--patience' ,  type = int, default=3)
-parser.add_argument('--batch_size' , type = int, default=1)
+parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--max_epoch' ,  type = int, default=1)
 parser.add_argument('--base_trained_model', type = str, default = 'bert-base-uncased', help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
@@ -27,11 +27,9 @@ parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't
 parser.add_argument('--log_file' , type = str,  default = f'logs/log_{now_time}.txt', help = 'Is this debuggin mode?')
 parser.add_argument('--dataset_name' , type = str,  default = 'race', help = 'race')
 parser.add_argument('--dataset_option' , type = str,  default = 'all', help = 'all|middle|high')
-parser.add_argument('--max_length' , type = int,  default = 256, help = 'max length')
+parser.add_argument('--max_length' , type = int,  default = 512, help = 'max length')
 parser.add_argument('--max_options' , type = int,  default = 9, help = 'max number of options')
 parser.add_argument('--do_train' , default = True, help = 'do train or not', action=argparse.BooleanOptionalAction)
-
-
 
 
 
@@ -49,8 +47,7 @@ def makedirs(path):
        
 @email_sender(recipient_emails=["jihyunlee@postech.ac.kr"], sender_email="knowing.deep.clean.water@gmail.com")
 def main():
-    makedirs("./data"); makedirs("./logs"); makedirs("./model");
-    
+    makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
     
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
     model = AutoModelForMultipleChoice.from_pretrained(args.base_trained_model)

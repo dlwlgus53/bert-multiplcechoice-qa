@@ -7,10 +7,10 @@ from sklearn.metrics import accuracy_score
 def train(model, train_loader, optimizer, device):
         model.train()
         loss_sum = 0
-        t_train_loader = tqdm(train_loader)
+        # t_train_loader = tqdm(train_loader)
         anss, preds  = [] , []
         ACC =0
-        for iter, batch in enumerate(t_train_loader):
+        for iter, batch in enumerate(train_loader):
              
             anss += batch['labels'].to('cpu').tolist()
             optimizer.zero_grad()
@@ -20,7 +20,7 @@ def train(model, train_loader, optimizer, device):
             loss = outputs[0]
             loss.backward()
             optimizer.step()
-            t_train_loader.set_description("Loss %.04f ACC %.04f" % (loss, ACC))
+            # t_train_loader.set_description("Loss %.04f ACC %.04f" % (loss, ACC))
             preds += torch.max(outputs[1], axis = 1).indices.to('cpu').tolist()
             
         
@@ -43,15 +43,15 @@ def valid(model, dev_loader, device, tokenizer, log_file):
     print("Validation start")
     with torch.no_grad():
         log_file.write("\n")
-        t_dev_loader = tqdm(dev_loader)
-        for iter,batch in enumerate(t_dev_loader):
+        # t_dev_loader = tqdm(dev_loader)
+        for iter,batch in enumerate(dev_loader):
             anss += batch['labels'].to('cpu').tolist()
             batch = {k:v.to(device)for k, v in batch.items()}
             outputs = model(input_ids = batch['input_ids'], token_type_ids = batch['token_type_ids'], attention_mask=batch['attention_mask'], labels = batch['labels'])
             loss_sum += outputs[0].to('cpu')
             preds += torch.max(outputs[1], axis = 1).indices.to('cpu').tolist()
             
-            t_dev_loader.set_description("Loss %.04f  | step %d" % (outputs[0].to('cpu'), iter))
+            # dev_loader.set_description("Loss %.04f  | step %d" % (outputs[0].to('cpu'), iter))
 
 
         gc.collect()

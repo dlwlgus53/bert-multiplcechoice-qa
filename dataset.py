@@ -80,7 +80,7 @@ class Dataset(torch.utils.data.Dataset):
             article, question, options, answer = dataset['dialogue'], dataset['question'], dataset['choice'], dataset['answer']
         
         
-        for i, (c, q, os, a) in tqdm(enumerate(zip(article, question, options, answer)), total= len(article)):
+        for i, (c, q, os, a) in enumerate(zip(article, question, options, answer)):
             os += ['not mentioned']
             os += (['wrong'] * (self.max_options-len(os)))
             assert len(os) == self.max_options
