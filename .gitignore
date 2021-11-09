@@ -2,6 +2,7 @@ data/
 model/
 runs/
 logs/
+out/
 baseline.txt
 # Byte-compiled / optimized / DLL files
 __pycache__/
