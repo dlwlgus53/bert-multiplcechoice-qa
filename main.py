@@ -107,11 +107,8 @@ def main_worker(gpu, args):
                 if not args.debugging:
                     torch.save(model.state_dict(), f"model/{args.dataset_name}.pt")
                 print("safely saved")
-                
+    print(best_performance)
     dist.barrier()
-    
-    
-    # print(best_performance)
 
             
             
