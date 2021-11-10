@@ -4,59 +4,51 @@ import gc
 import pdb 
 
 from sklearn.metrics import accuracy_score
-def train(model, train_loader, optimizer, device):
-        model.train()
-        loss_sum = 0
-        # t_train_loader = tqdm(train_loader)
-        anss, preds  = [] , []
-        ACC =0
-        for iter, batch in enumerate(train_loader):
-             
-            anss += batch['labels'].to('cpu').tolist()
-            optimizer.zero_grad()
-            batch = {k:v.to(device)for k, v in batch.items()}
-            outputs = model(input_ids = batch['input_ids'], token_type_ids = batch['token_type_ids'],\
-                             attention_mask=batch['attention_mask'], labels = batch['labels'])
-            loss = outputs[0]
-            loss.backward()
-            optimizer.step()
-            # t_train_loader.set_description("Loss %.04f ACC %.04f" % (loss, ACC))
-            preds += torch.max(outputs[1], axis = 1).indices.to('cpu').tolist()
+def train(gpu, model, train_loader, optimizer):
+    model.train()
+    if gpu==0: print("Train start")
+    for iter, batch in enumerate(train_loader):
+        optimizer.zero_grad()
+        batch = {k:v.cuda(non_blocking = True) for k, v in batch.items()}
+        outputs = model(input_ids = batch['input_ids'], token_type_ids = batch['token_type_ids'],\
+                            attention_mask=batch['attention_mask'], labels = batch['labels'])
+        loss = outputs[0]
+        loss.backward()
+        optimizer.step()
+        
+        if (iter + 1) % 10 == 0 and gpu==0:
+            print('gpu {} step : {}/{} Loss: {:.4f}'.format(
+                gpu,
+                iter, 
+                str(len(train_loader)),
+                loss.detach())
+            )
             
-        
-            if iter %100 == 0 and len(anss) != 0:
-                ACC = accuracy_score(anss, preds)
-                anss , preds = [] , []
-        
-        gc.collect()
-        torch.cuda.empty_cache()
 
 
 
-
-def valid(model, dev_loader, device, tokenizer, log_file):
-
+def valid(gpu, model, dev_loader):
     model.eval()
+    loss_sum = 0
     anss = []
     preds = []
-    loss_sum = 0
-    print("Validation start")
+    if gpu==0: print("Validation start")
     with torch.no_grad():
-        log_file.write("\n")
-        # t_dev_loader = tqdm(dev_loader)
         for iter,batch in enumerate(dev_loader):
+            batch = {k:v.cuda(non_blocking = True) for k, v in batch.items()} # 동기적으로 작동하도록!
+            outputs = model(input_ids = batch['input_ids'], token_type_ids = batch['token_type_ids'],\
+                attention_mask=batch['attention_mask'], labels = batch['labels'])
+
             anss += batch['labels'].to('cpu').tolist()
-            batch = {k:v.to(device)for k, v in batch.items()}
-            outputs = model(input_ids = batch['input_ids'], token_type_ids = batch['token_type_ids'], attention_mask=batch['attention_mask'], labels = batch['labels'])
-            loss_sum += outputs[0].to('cpu')
             preds += torch.max(outputs[1], axis = 1).indices.to('cpu').tolist()
+            loss_sum += outputs[0].detach()
             
-            # dev_loader.set_description("Loss %.04f  | step %d" % (outputs[0].to('cpu'), iter))
-
-
-        gc.collect()
-        torch.cuda.empty_cache()
-           
-    return  anss, preds, loss_sum.item()/iter
+            if (iter + 1) % 100 == 0 and gpu == 0:
+                print('step : {}/{} Loss: {:.4f}'.format(
+                iter, 
+                str(len(dev_loader))
+                ))
+                
+    return  anss, preds, loss_sum/iter
         
         

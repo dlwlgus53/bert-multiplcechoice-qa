@@ -11,9 +11,6 @@ import pdb
 
 
 
-print("Load Tokenizer")
-tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', use_fast=True)
-
 class Dataset(torch.utils.data.Dataset):
     def __init__(self,data_name, data_option, tokenizer, max_length, max_options, type):
         self.tokenizer = tokenizer
@@ -52,8 +49,7 @@ class Dataset(torch.utils.data.Dataset):
                 pickle.dump(encodings, f, pickle.HIGHEST_PROTOCOL)
 
         self.encodings = encodings
-        print(tokenizer.convert_ids_to_tokens(encodings['input_ids'][0][0]))
-        print(tokenizer.convert_ids_to_tokens(encodings['input_ids'][1][0]))
+        # print(self.tokenizer.convert_ids_to_tokens(encodings['input_ids'][0][0]))
         
 
     def __getitem__(self, idx):
@@ -87,14 +83,14 @@ class Dataset(torch.utils.data.Dataset):
             for o in os:
                 if self.data_name == 'dream':
                     c = ' '.join(c)
-                c_token = tokenizer.tokenize(c)
-                q_token = tokenizer.tokenize(q)
-                o_token = tokenizer.tokenize(o)
+                c_token = self.tokenizer.tokenize(c)
+                q_token = self.tokenizer.tokenize(q)
+                o_token = self.tokenizer.tokenize(o)
                 c_token, q_token, o_token = self._truncate_cqo_token(c_token, q_token, o_token)
                 
                 tokens = ["[CLS]"] + c_token + ["[SEP]"] + q_token + o_token + ["[SEP]"] 
                 segment_ids = [0] * (len(c_token) + 2) + [1] * (len(q_token) )+ [1] * (len(o_token) + 1)
-                input_ids = tokenizer.convert_tokens_to_ids(tokens)
+                input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
                 input_mask = [1] * len(input_ids)
 
                 # Zero-pad up to the sequence length.
@@ -147,6 +143,8 @@ class Dataset(torch.utils.data.Dataset):
 
 
 if __name__ == '__main__':
+    print("Load Tokenizer")
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', use_fast=True)
     max_length = 128
     max_option = 6
     train_dataset = Dataset('dream', None, tokenizer, max_length, max_option, "validation")
