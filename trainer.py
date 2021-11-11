@@ -4,9 +4,9 @@ import gc
 import pdb 
 
 from sklearn.metrics import accuracy_score
-def train(gpu, model, train_loader, optimizer):
+def train(gpu, model, train_loader, optimizer, logger):
     model.train()
-    if gpu==0: print("Train start")
+    if gpu==0: logger.info("Train start")
     for iter, batch in enumerate(train_loader):
         optimizer.zero_grad()
         batch = {k:v.cuda(non_blocking = True) for k, v in batch.items()}
@@ -16,8 +16,8 @@ def train(gpu, model, train_loader, optimizer):
         loss.backward()
         optimizer.step()
         
-        if (iter + 1) % 10 == 0 and gpu==0:
-            print('gpu {} step : {}/{} Loss: {:.4f}'.format(
+        if (iter + 1) % 100 == 0 and gpu==0:
+            logger.info('gpu {} step : {}/{} Loss: {:.4f}'.format(
                 gpu,
                 iter, 
                 str(len(train_loader)),
@@ -27,12 +27,12 @@ def train(gpu, model, train_loader, optimizer):
 
 
 
-def valid(gpu, model, dev_loader):
+def valid(gpu, model, dev_loader, logger):
     model.eval()
     loss_sum = 0
     anss = []
     preds = []
-    if gpu==0: print("Validation start")
+    if gpu==0: logger.info("Validation start")
     with torch.no_grad():
         for iter,batch in enumerate(dev_loader):
             batch = {k:v.cuda(non_blocking = True) for k, v in batch.items()} # 동기적으로 작동하도록!
@@ -44,7 +44,7 @@ def valid(gpu, model, dev_loader):
             loss_sum += outputs[0].detach()
             
             if (iter + 1) % 100 == 0 and gpu == 0:
-                print('step : {}/{} Loss: {:.4f}'.format(
+                logger.info('step : {}/{} Loss: {:.4f}'.format(
                 iter, 
                 str(len(dev_loader))
                 ))

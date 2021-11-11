@@ -12,18 +12,18 @@ import pdb
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self,data_name, data_option, tokenizer, max_length, max_options, type):
+    def __init__(self,data_name, data_option, tokenizer, max_length, max_options, type, logger):
         self.tokenizer = tokenizer
         self.data_name = data_name
         self.max_length = max_length
         self.max_options = max_options
-
+        self.logger = logger
         try:
-            print("Load processed data")
+            logger.info("Load processed data")
             with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'rb') as f:
                 encodings = pickle.load(f)
         except:
-            print("preprocessing data...")
+            logger.info("preprocessing data...")
             if data_option:
                 raw_dataset = load_dataset(self.data_name,data_option)
             else:
@@ -37,7 +37,7 @@ class Dataset(torch.utils.data.Dataset):
                 'token_type_ids' : token_type_ids
             }
 
-            print("Encoding dataset (it will takes some time)")
+            logger.info("Encoding dataset (it will takes some time)")
             encodings = {k: [v[i:i+max_options] for i in range(0, len(v), max_options)] for k, v in tokenized_examples.items()}
             encodings['labels'] = labels
             
@@ -69,7 +69,7 @@ class Dataset(torch.utils.data.Dataset):
         segment_idss = []
 
         labels = []
-        print(f"preprocessing {self.data_name} data")
+        self.logger.info(f"preprocessing {self.data_name} data")
         if self.data_name == 'race':
             article, question, options, answer = dataset['article'], dataset['question'], dataset['options'], dataset['answer']
         elif self.data_name == 'dream':

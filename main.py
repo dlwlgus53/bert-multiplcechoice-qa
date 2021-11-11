@@ -1,6 +1,7 @@
 import os
 import time
 import torch
+import logging
 import argparse
 import datetime
 import pdb
@@ -19,6 +20,11 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from knockknock import email_sender
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+
 now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 parser = argparse.ArgumentParser()
 
@@ -36,9 +42,15 @@ parser.add_argument('--do_train' , default = True, help = 'do train or not', act
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
 parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
-parser.add_argument('-num_worker',default=6, type=int,help='cpus')
+parser.add_argument('--num_worker',default=6, type=int,help='cpus')
+parser.add_argument('--log_file' , type = str,  default = f'logs/log_{now_time}.txt', help = 'Is this debuggin mode?')
+
 args = parser.parse_args()
 
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler = logging.FileHandler(args.log_file)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 def makedirs(path): 
    try: 
@@ -61,6 +73,7 @@ def cleanup():
     dist.destroy_process_group()
     
 def main_worker(gpu, args):
+    logger.info(f'{gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
     num_worker = int(args.num_worker / args.gpus)
     
@@ -85,29 +98,29 @@ def main_worker(gpu, args):
     map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
     
     if args.pretrained_model:
-        print("use trained model")
+        logger.info("use trained model")
         model.load_state_dict(
             torch.load(args.pretrained_model, map_location=map_location))
     
     for epoch in range(args.max_epoch):
         dist.barrier()
-        if gpu==0:print(f"Epoch : {epoch}")
+        if gpu==0: logger.info(f"Epoch : {epoch}")
         if args.do_train:
-            train(gpu, model, train_loader, optimizer)
-        anss, preds, loss = valid(gpu, model, dev_loader)
+            train(gpu, model, train_loader, optimizer, logger)
+        anss, preds, loss = valid(gpu, model, dev_loader, logger)
         ACC = accuracy_score(anss, preds)
-        print("Epoch : %d, ACC : %.04f , loss : %.04f" % (epoch, ACC, loss))
+        logger.info("Epoch : %d, ACC : %.04f , loss : %.04f" % (epoch, ACC, loss))
         
         if gpu == 0:
             if loss < min_loss:
-                print("New best")
+                logger.info("New best")
                 min_loss = loss
                 best_performance['min_loss'] = min_loss.item()
                 best_performance['accuracy'] = ACC
                 if not args.debugging:
                     torch.save(model.state_dict(), f"model/{args.dataset_name}.pt")
-                print("safely saved")
-    print(best_performance)
+                logger.info("safely saved")
+    logger.info(best_performance)
     dist.barrier()
 
             
@@ -117,8 +130,8 @@ def main():
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes 
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
-    args.train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train")
-    args.val_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer,  args.max_length, args.max_options,"validation") 
+    args.train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train", logger)
+    args.val_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer,  args.max_length, args.max_options,"validation", logger) 
     mp.spawn(main_worker,
         nprocs=args.world_size,
         args=(args,),
@@ -128,4 +141,4 @@ if __name__ =="__main__":
     start = time.time()
     main()
     result_list = str(datetime.timedelta(seconds=time.time() - start)).split(".")
-    print(result_list[0])
+    logger.info(result_list[0])
