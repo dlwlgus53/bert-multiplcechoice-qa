@@ -8,22 +8,22 @@ from torch.utils.data import DataLoader
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
 import torch
 import pdb
-
+from base_logger import logger
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self,data_name, data_option, tokenizer, max_length, max_options, type, logger):
+    def __init__(self,data_name, data_option, tokenizer, max_length, max_options, type):
         self.tokenizer = tokenizer
         self.data_name = data_name
         self.max_length = max_length
         self.max_options = max_options
         self.logger = logger
         try:
-            logger.info("Load processed data")
+            logger.info(f"Load data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle")
             with open(f'data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle', 'rb') as f:
                 encodings = pickle.load(f)
         except:
-            logger.info("preprocessing data...")
+            logger.info(f"preprocessing data/preprocessed_{type}_{data_name}_{data_option}_{max_length}_{max_options}.pickle")
             if data_option:
                 raw_dataset = load_dataset(self.data_name,data_option)
             else:

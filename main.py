@@ -17,19 +17,13 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
-
 from knockknock import email_sender
+from base_logger import logger
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-
-
-now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--batch_size' , type = int, default=4)
-parser.add_argument('--max_epoch' ,  type = int, default=1)
+parser.add_argument('--max_epoch' ,  type = int, default=2)
 parser.add_argument('--base_trained_model', type = str, default = 'bert-base-uncased', help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
 parser.add_argument('--gpu_number' , type = int,  default = 0, help = 'which GPU will you use?')
@@ -43,14 +37,10 @@ parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
 parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 parser.add_argument('--num_worker',default=6, type=int,help='cpus')
-parser.add_argument('--log_file' , type = str,  default = f'logs/log_{now_time}.txt', help = 'Is this debuggin mode?')
+# parser.add_argument('--log_file' , type = str,  default = f'logs/log_{now_time}.txt', help = 'Is this debuggin mode?')
 
 args = parser.parse_args()
 
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler = logging.FileHandler(args.log_file)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 def makedirs(path): 
    try: 
@@ -106,8 +96,8 @@ def main_worker(gpu, args):
         dist.barrier()
         if gpu==0: logger.info(f"Epoch : {epoch}")
         if args.do_train:
-            train(gpu, model, train_loader, optimizer, logger)
-        anss, preds, loss = valid(gpu, model, dev_loader, logger)
+            train(gpu, model, train_loader, optimizer)
+        anss, preds, loss = valid(gpu, model, dev_loader)
         ACC = accuracy_score(anss, preds)
         logger.info("Epoch : %d, ACC : %.04f , loss : %.04f" % (epoch, ACC, loss))
         
@@ -120,7 +110,7 @@ def main_worker(gpu, args):
                 if not args.debugging:
                     torch.save(model.state_dict(), f"model/{args.dataset_name}.pt")
                 logger.info("safely saved")
-    logger.info(best_performance)
+    logger.info(f"Best Score :  {best_performance}" )
     dist.barrier()
 
             
@@ -129,16 +119,24 @@ def main():
     makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes 
+    
     tokenizer = AutoTokenizer.from_pretrained(args.base_trained_model, use_fast=True)
-    args.train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train", logger)
-    args.val_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer,  args.max_length, args.max_options,"validation", logger) 
+    args.train_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer, args.max_length, args.max_options, "train")
+    args.val_dataset = Dataset(args.dataset_name, args.dataset_option, tokenizer,  args.max_length, args.max_options,"validation") 
+    
     mp.spawn(main_worker,
         nprocs=args.world_size,
         args=(args,),
         join=True)
 
 if __name__ =="__main__":
+    logger.info(f"{'-' * 30}")
+    logger.info("Start New Trainning")
     start = time.time()
     main()
     result_list = str(datetime.timedelta(seconds=time.time() - start)).split(".")
     logger.info(result_list[0])
+    logger.info("End The Trainning")
+    logger.info(f"{'-' * 30}")
+    
+    

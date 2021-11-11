@@ -2,9 +2,10 @@ import torch
 from tqdm import tqdm
 import gc
 import pdb 
+from base_logger import logger
 
 from sklearn.metrics import accuracy_score
-def train(gpu, model, train_loader, optimizer, logger):
+def train(gpu, model, train_loader, optimizer):
     model.train()
     if gpu==0: logger.info("Train start")
     for iter, batch in enumerate(train_loader):
@@ -16,7 +17,7 @@ def train(gpu, model, train_loader, optimizer, logger):
         loss.backward()
         optimizer.step()
         
-        if (iter + 1) % 100 == 0 and gpu==0:
+        if (iter + 1) % 10 == 0 and gpu==0:
             logger.info('gpu {} step : {}/{} Loss: {:.4f}'.format(
                 gpu,
                 iter, 
@@ -27,7 +28,7 @@ def train(gpu, model, train_loader, optimizer, logger):
 
 
 
-def valid(gpu, model, dev_loader, logger):
+def valid(gpu, model, dev_loader):
     model.eval()
     loss_sum = 0
     anss = []
@@ -43,10 +44,11 @@ def valid(gpu, model, dev_loader, logger):
             preds += torch.max(outputs[1], axis = 1).indices.to('cpu').tolist()
             loss_sum += outputs[0].detach()
             
-            if (iter + 1) % 100 == 0 and gpu == 0:
+            if (iter + 1) % 10 == 0 and gpu == 0:
                 logger.info('step : {}/{} Loss: {:.4f}'.format(
                 iter, 
-                str(len(dev_loader))
+                str(len(dev_loader)),
+                outputs[0].detach()
                 ))
                 
     return  anss, preds, loss_sum/iter
